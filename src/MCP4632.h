@@ -27,7 +27,27 @@ struct CalibrationPoint {
 
 // Varsayılan Kalibrasyon Tablosu Makrosu (Tek satır - syntax hatasını imkansız kılar)
 #ifndef DGTLPOT_CALIBRATION_TABLE
-#define DGTLPOT_CALIBRATION_TABLE { {0.0f, 0.0f}, {10.0f, 10.5f}, {30.0f, 32.0f}, {40.0f, 42.0f}, {45.0f, 45.0f}, {50.0f, 55.5f} }
+#define DGTLPOT_CALIBRATION_TABLE { \
+    {  0.0f,   0.00f }, \
+    {  1.0f,   0.85f }, \
+    {  2.0f,   1.98f }, \
+    {  3.0f,   2.92f }, \
+    {  4.0f,   3.84f }, \
+    {  5.0f,   4.96f }, \
+    { 10.0f,   9.88f }, \
+    { 12.0f,  11.89f }, \
+    { 15.0f,  14.82f }, \
+    { 18.0f,  17.83f }, \
+    { 20.0f,  19.88f }, \
+    { 23.0f,  22.81f }, \
+    { 25.0f,  24.81f }, \
+    { 30.0f,  29.82f }, \
+    { 33.0f,  32.76f }, \
+    { 37.0f,  36.80f }, \
+    { 40.0f,  39.85f }, \
+    { 43.0f,  42.86f }, \
+    { 50.0f,  50.00f }  \
+}
 #endif
 
 // Toplam aktif şematik kanal sayısı (3'ten 8'e kadar 6 adet)

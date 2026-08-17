@@ -16,7 +16,6 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-# CustomTkinter Tema Ayarları
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
@@ -25,36 +24,34 @@ class HILTestApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("Taytech TTSimBox - Automated HIL Test Suite")
+        self.title("Taytech TTSimBox - POT3 Voltage Verification Suite")
         self.geometry("800x850")
 
         self.com_port = "COM5"
         self.slave_id = 1
 
-        # 8 KANALLI DIAGNOSTIC SENARYOLARI (Default 50k -> Test anında 10k düşüş)
+        # SADECE DGTLPOT_3 İÇİN VOLTAJ VE DİRENÇ ADIMLARI
         self.test_scenarios = [
-            {"id": 1, "name": "Kanal 1 Test (POT1 - 10 kΩ Drop)", "type": "Kanal Tanılama", "expected_v": "10 kΩ"},
-            {"id": 2, "name": "Kanal 2 Test (POT2 - 10 kΩ Drop)", "type": "Kanal Tanılama", "expected_v": "10 kΩ"},
-            {"id": 3, "name": "Kanal 3 Test (POT3 - 10 kΩ Drop)", "type": "Kanal Tanılama", "expected_v": "10 kΩ"},
-            {"id": 4, "name": "Kanal 4 Test (POT4 - 10 kΩ Drop)", "type": "Kanal Tanılama", "expected_v": "10 kΩ"},
-            {"id": 5, "name": "Kanal 5 Test (POT5 - 10 kΩ Drop)", "type": "Kanal Tanılama", "expected_v": "10 kΩ"},
-            {"id": 6, "name": "Kanal 6 Test (POT6 - 10 kΩ Drop)", "type": "Kanal Tanılama", "expected_v": "10 kΩ"},
-            {"id": 7, "name": "Kanal 7 Test (POT7 - 10 kΩ Drop)", "type": "Kanal Tanılama", "expected_v": "10 kΩ"},
-            {"id": 8, "name": "Kanal 8 Test (POT8 - 10 kΩ Drop)", "type": "Kanal Tanılama", "expected_v": "10 kΩ"},
+            {"id": 1, "name": "POT3 - 0.45 kΩ Testi", "type": "Voltaj Doğrulama", "expected_v": "0.767 V"},
+            {"id": 2, "name": "POT3 - 5.86 kΩ Testi", "type": "Voltaj Doğrulama", "expected_v": "1.987 V"},
+            {"id": 3, "name": "POT3 - 4.79 kΩ Testi", "type": "Voltaj Doğrulama", "expected_v": "2.481 V"},
+            {"id": 4, "name": "POT3 - 1.83 kΩ Testi", "type": "Voltaj Doğrulama", "expected_v": "2.832 V"},
+            {"id": 5, "name": "POT3 - 30 kΩ Testi", "type": "Voltaj Doğrulama", "expected_v": "2.972 V"},
+            {"id": 6, "name": "POT3 - 40 kΩ Testi", "type": "Voltaj Doğrulama", "expected_v": "3.048 V"},
+            {"id": 7, "name": "POT3 - 50 kΩ Testi", "type": "Voltaj Doğrulama", "expected_v": "3.095 V"},
+            {"id": 8, "name": "POT3 - Reset (50 kΩ)", "type": "Voltaj Doğrulama", "expected_v": "3.095 V"},
         ]
 
         self.test_results = {}
         self.setup_ui()
 
     def setup_ui(self):
-        # Başlık Banner
         self.header_label = ctk.CTkLabel(
-            self, text="TTSimBox HIL SIMULATOR CONTROL & TEST PANEL",
+            self, text="TTSimBox POT3 SINGLE-CHANNEL VOLTAGE TESTER",
             font=ctk.CTkFont(size=18, weight="bold")
         )
         self.header_label.pack(pady=15)
 
-        # Port ve Genel Kontrol Çerçevesi
         self.conn_frame = ctk.CTkFrame(self)
         self.conn_frame.pack(fill="x", padx=20, pady=5)
 
@@ -66,13 +63,12 @@ class HILTestApp(ctk.CTk):
         self.port_entry.pack(side="left", padx=5, pady=8)
 
         self.run_all_btn = ctk.CTkButton(
-            self.conn_frame, text="TÜM TESTLERİ OTOMATİK KOŞTUR",
+            self.conn_frame, text="TÜM VOLTAJ ADIMLARINI KOŞTUR",
             fg_color="#1D4ED8", hover_color="#1E40AF",
             command=lambda: self.start_thread(self.run_all_tests)
         )
         self.run_all_btn.pack(side="right", padx=10, pady=8)
 
-        # Tekil Test Butonları Çerçevesi (Grid Panel - 8 Buton)
         self.tests_frame = ctk.CTkFrame(self)
         self.tests_frame.pack(fill="x", padx=20, pady=10)
 
@@ -81,7 +77,7 @@ class HILTestApp(ctk.CTk):
             t_id = test["id"]
             btn = ctk.CTkButton(
                 self.tests_frame,
-                text=f"Test {t_id}: {test['name']}",
+                text=f"Test {t_id}: {test['name']} ({test['expected_v']})",
                 fg_color="#374151",
                 hover_color="#4B5563",
                 command=lambda id_=t_id: self.start_thread(lambda: self.run_single_test(id_))
@@ -92,11 +88,9 @@ class HILTestApp(ctk.CTk):
         self.tests_frame.grid_columnconfigure(0, weight=1)
         self.tests_frame.grid_columnconfigure(1, weight=1)
 
-        # Log & Konsol Ekranı
         self.log_box = ctk.CTkTextbox(self, width=740, height=220, font=ctk.CTkFont(family="Consolas", size=12))
         self.log_box.pack(padx=20, pady=10)
 
-        # Raporlama Butonları Çerçevesi
         self.report_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.report_frame.pack(pady=10)
 
@@ -136,41 +130,32 @@ class HILTestApp(ctk.CTk):
         t_id = test["id"]
         t_name = test["name"]
 
-        self.log(f"--> Test {t_id} Koşturuluyor: {t_name} (5s 10k düşüş bekleniyor)")
+        self.log(f"--> Test {t_id} Koşturuluyor: {t_name} (Beklenen: {test['expected_v']})")
 
         try:
-            # 1. Reset
             client.write_register(0, 0)
             time.sleep(0.1)
 
-            # 2. Set Test ID
             client.write_register(1, t_id)
             time.sleep(0.1)
 
-            # 3. Trigger Test (5 sn sürecek)
             client.write_register(0, 1)
-            time.sleep(5.5) 
+            time.sleep(5.5)
 
-            # 4. EŞ ZAMANLI BLOCK READ (Reg 10-17 Arası 8 Kanalı Tek Pakette Oku)
             res = client.read_holding_registers(10, count=8)
-            
             status_str = "READ_ERROR"
-            
+
             if not res.isError():
                 channel_statuses = res.registers  
-                self.log(f"    [CANLI KANAL DURUMLARI]: {channel_statuses}")
-
                 target_index = t_id - 1
-                target_channel_status = channel_statuses[target_index] 
+                target_channel_status = channel_statuses[target_index]
 
                 if target_channel_status == 2:
                     status_str = "PASSED"
-                    self.log(f"    [SONUÇ] Test {t_id} (Kanal {t_id}) BAŞARILI (PASS)\n")
+                    self.log(f"    [SONUÇ] Test {t_id} BAŞARILI (PASS)\n")
                 else:
                     status_str = "FAILED"
-                    self.log(f"    [SONUÇ] Test {t_id} (Kanal {t_id}) BAŞARISIZ (Status: {target_channel_status})\n")
-            else:
-                self.log(f"    [MODBUS HATA] Register okuma başarısız! Hata Detayı: {res}\n")
+                    self.log(f"    [SONUÇ] Test {t_id} BAŞARISIZ (Status: {target_channel_status})\n")
 
             self.test_results[t_id] = {
                 "id": t_id, "name": t_name, "type": test["type"],
@@ -180,11 +165,6 @@ class HILTestApp(ctk.CTk):
 
         except Exception as e:
             self.log(f"    [SİSTEM HATASI] İstisna oluştu: {e}\n")
-            self.test_results[t_id] = {
-                "id": t_id, "name": t_name, "type": test["type"],
-                "expected": test["expected_v"], "status": "SYS_ERROR",
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
 
     def run_single_test(self, test_id):
         self.com_port = self.port_entry.get()
@@ -202,7 +182,6 @@ class HILTestApp(ctk.CTk):
             self.set_buttons_state("normal")
             return
 
-        self.log(f"[BAĞLANDI] {self.com_port} portu açıldı. Tekil Test İcra Ediliyor...")
         self.execute_modbus_test(client, test)
         client.close()
 
@@ -223,20 +202,17 @@ class HILTestApp(ctk.CTk):
             self.set_buttons_state("normal")
             return
 
-        self.log(f"[BAĞLANDI] {self.com_port} portu açıldı. Tüm Testler Başlatılıyor...\n" + "="*60)
-
         for test in self.test_scenarios:
             self.execute_modbus_test(client, test)
 
         client.close()
-        self.log("="*60 + "\n[TAMAMLANDI] Tüm HIL Test Senaryoları İcra Edildi!")
         self.set_buttons_state("normal")
         self.enable_report_buttons()
 
     def generate_excel_report(self):
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "HIL Test Raporu"
+        ws.title = "POT3 Voltaj Raporu"
 
         font_header = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
         fill_header = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
@@ -252,15 +228,15 @@ class HILTestApp(ctk.CTk):
         )
 
         ws.merge_cells("A1:F1")
-        ws["A1"] = "Taytech TTSimBox - HIL Test Doğrulama Raporu"
+        ws["A1"] = "Taytech TTSimBox - DGTLPOT_3 Voltaj Doğrulama Raporu"
         ws["A1"].font = Font(name="Calibri", size=14, bold=True, color="1F4E79")
         ws["A1"].alignment = align_left
         ws["A2"] = f"Rapor Tarihi: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         ws["A2"].font = Font(name="Calibri", size=10, italic=True)
 
-        headers = ["Test ID", "Senaryo Adı", "Test Tipi", "Beklenen Değer", "Test Durumu", "Zaman Damgası"]
-        ws.append([]) 
-        ws.append(headers) 
+        headers = ["Test ID", "Senaryo Adı", "Test Tipi", "Beklenen Gerilim", "Test Durumu", "Zaman Damgası"]
+        ws.append([])
+        ws.append(headers)
 
         for col_num, header in enumerate(headers, 1):
             cell = ws.cell(row=4, column=col_num)
@@ -294,22 +270,22 @@ class HILTestApp(ctk.CTk):
             ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
 
         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        excel_filename = f"HIL_Test_Report_{timestamp_str}.xlsx"
+        excel_filename = f"POT3_Voltage_Report_{timestamp_str}.xlsx"
         wb.save(excel_filename)
-        self.log(f"\n[EXCEL] Rapor başarıyla oluşturuldu: {excel_filename}")
+        self.log(f"\n[EXCEL] Rapor oluşturuldu: {excel_filename}")
         os.system(f"start {excel_filename}")
 
     def generate_pdf_report(self):
-        pdf_filename = f"HIL_Test_Report_{int(time.time())}.pdf"
+        pdf_filename = f"POT3_Voltage_Report_{int(time.time())}.pdf"
         doc = SimpleDocTemplate(pdf_filename, pagesize=letter)
         styles = getSampleStyleSheet()
 
         story = []
         title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=18, leading=22, textColor=colors.HexColor("#1A365D"))
-        story.append(Paragraph("TTSimBox HIL Simulator Validation Report", title_style))
+        story.append(Paragraph("TTSimBox POT3 Voltage Test Report", title_style))
         story.append(Spacer(1, 15))
 
-        data = [["Test ID", "Senaryo Adı", "Tip", "Beklenen Değer", "Durum"]]
+        data = [["Test ID", "Senaryo Adı", "Tip", "Beklenen Gerilim", "Durum"]]
         for t_id in sorted(self.test_results.keys()):
             r = self.test_results[t_id]
             data.append([str(r["id"]), r["name"], r["type"], r["expected"], r["status"]])

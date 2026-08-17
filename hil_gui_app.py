@@ -26,19 +26,21 @@ class HILTestApp(ctk.CTk):
         super().__init__()
 
         self.title("Taytech TTSimBox - Automated HIL Test Suite")
-        self.geometry("800x740")
+        self.geometry("800x850")
 
         self.com_port = "COM5"
         self.slave_id = 1
 
-        # Test Senaryoları Tanımı
+        # 8 KANALLI DIAGNOSTIC SENARYOLARI (Default 50k -> Test anında 10k düşüş)
         self.test_scenarios = [
-            {"id": 1, "name": "Donma Koruması (50 kΩ)", "type": "Normal", "expected_v": "3.08 V"},
-            {"id": 2, "name": "Yüksek Sıcaklık (10 kΩ)", "type": "Normal", "expected_v": "2.49 V"},
-            {"id": 3, "name": "Kademeli Geçiş Sweep (10k -> 50k)", "type": "Fade Sweep", "expected_v": "2.49V -> 3.08V"},
-            {"id": 4, "name": "Sensör Kopuk Arızası (100 kΩ)", "type": "Hata Enjeksiyonu", "expected_v": "~3.30 V"},
-            {"id": 5, "name": "Sensör Kısa Devre Arızası (0 Ω)", "type": "Hata Enjeksiyonu", "expected_v": "0.00 V"},
-            {"id": 6, "name": "Çift Sensör (Ch1: 10k + Ch6: 50k)", "type": "Çoklu Kanal", "expected_v": "Ch1:2.49V / Ch6:3.08V"},
+            {"id": 1, "name": "Kanal 1 Test (POT1 - 10 kΩ Drop)", "type": "Kanal Tanılama", "expected_v": "10 kΩ"},
+            {"id": 2, "name": "Kanal 2 Test (POT2 - 10 kΩ Drop)", "type": "Kanal Tanılama", "expected_v": "10 kΩ"},
+            {"id": 3, "name": "Kanal 3 Test (POT3 - 10 kΩ Drop)", "type": "Kanal Tanılama", "expected_v": "10 kΩ"},
+            {"id": 4, "name": "Kanal 4 Test (POT4 - 10 kΩ Drop)", "type": "Kanal Tanılama", "expected_v": "10 kΩ"},
+            {"id": 5, "name": "Kanal 5 Test (POT5 - 10 kΩ Drop)", "type": "Kanal Tanılama", "expected_v": "10 kΩ"},
+            {"id": 6, "name": "Kanal 6 Test (POT6 - 10 kΩ Drop)", "type": "Kanal Tanılama", "expected_v": "10 kΩ"},
+            {"id": 7, "name": "Kanal 7 Test (POT7 - 10 kΩ Drop)", "type": "Kanal Tanılama", "expected_v": "10 kΩ"},
+            {"id": 8, "name": "Kanal 8 Test (POT8 - 10 kΩ Drop)", "type": "Kanal Tanılama", "expected_v": "10 kΩ"},
         ]
 
         self.test_results = {}
@@ -70,7 +72,7 @@ class HILTestApp(ctk.CTk):
         )
         self.run_all_btn.pack(side="right", padx=10, pady=8)
 
-        # Tekil Test Butonları Çerçevesi (Grid Panel)
+        # Tekil Test Butonları Çerçevesi (Grid Panel - 8 Buton)
         self.tests_frame = ctk.CTkFrame(self)
         self.tests_frame.pack(fill="x", padx=20, pady=10)
 
@@ -91,7 +93,7 @@ class HILTestApp(ctk.CTk):
         self.tests_frame.grid_columnconfigure(1, weight=1)
 
         # Log & Konsol Ekranı
-        self.log_box = ctk.CTkTextbox(self, width=740, height=240, font=ctk.CTkFont(family="Consolas", size=12))
+        self.log_box = ctk.CTkTextbox(self, width=740, height=220, font=ctk.CTkFont(family="Consolas", size=12))
         self.log_box.pack(padx=20, pady=10)
 
         # Raporlama Butonları Çerçevesi
@@ -134,52 +136,41 @@ class HILTestApp(ctk.CTk):
         t_id = test["id"]
         t_name = test["name"]
 
-        self.log(f"--> Test {t_id} Koşturuluyor: {t_name}")
+        self.log(f"--> Test {t_id} Koşturuluyor: {t_name} (5s 10k düşüş bekleniyor)")
 
         try:
             # 1. Reset
-            client.write_register(0, 0, device_id=self.slave_id)
+            client.write_register(0, 0)
             time.sleep(0.1)
 
             # 2. Set Test ID
-            client.write_register(1, t_id, device_id=self.slave_id)
+            client.write_register(1, t_id)
             time.sleep(0.1)
 
-            # 3. Trigger Test
-            client.write_register(0, 1, device_id=self.slave_id)
-            time.sleep(3.5) # Donanım test tamamlama süresi
+            # 3. Trigger Test (5 sn sürecek)
+            client.write_register(0, 1)
+            time.sleep(5.5) 
 
             # 4. EŞ ZAMANLI BLOCK READ (Reg 10-17 Arası 8 Kanalı Tek Pakette Oku)
-            res = client.read_holding_registers(10, count=8, device_id=self.slave_id)
+            res = client.read_holding_registers(10, count=8)
+            
+            status_str = "READ_ERROR"
             
             if not res.isError():
-                channel_statuses = res.registers  # 8 elemanlı liste: [Reg10, Reg11, ..., Reg17]
-                
-                # EŞ ZAMANLI CANLI KANAL DURUMLARINI LOGA YAZDIR
+                channel_statuses = res.registers  
                 self.log(f"    [CANLI KANAL DURUMLARI]: {channel_statuses}")
 
-                # SENARYO BAZLI EŞ ZAMANLI DOĞRULAMA (AND MANTIĞI)
-                if t_id == 6:
-                    # Test 6: Kanal 1 (Index 0) VE Kanal 6 (Index 5) ikisi de PASS (2) olmalı!
-                    ch1_status = channel_statuses[0]
-                    ch6_status = channel_statuses[5]
+                target_index = t_id - 1
+                target_channel_status = channel_statuses[target_index] 
 
-                    if ch1_status == 2 and ch6_status == 2:
-                        status_str = "PASSED"
-                        self.log(f"    [SONUÇ] Test {t_id} BAŞARILI (Her iki kanal PASS)\n")
-                    else:
-                        status_str = "FAILED"
-                        self.log(f"    [SONUÇ] Test {t_id} BAŞARISIZ (Ch1 Status: {ch1_status}, Ch6 Status: {ch6_status})\n")
+                if target_channel_status == 2:
+                    status_str = "PASSED"
+                    self.log(f"    [SONUÇ] Test {t_id} (Kanal {t_id}) BAŞARILI (PASS)\n")
                 else:
-                    # Tekil Testler (1-5): Sadece Kanal 6 (Index 5) kontrol edilir
-                    target_channel_status = channel_statuses[5] 
-
-                    if target_channel_status == 2:
-                        status_str = "PASSED"
-                        self.log(f"    [SONUÇ] Test {t_id} BAŞARILI (PASS)\n")
-                    else:
-                        status_str = "FAILED"
-                        self.log(f"    [SONUÇ] Test {t_id} BAŞARISIZ (Status: {target_channel_status})\n")
+                    status_str = "FAILED"
+                    self.log(f"    [SONUÇ] Test {t_id} (Kanal {t_id}) BAŞARISIZ (Status: {target_channel_status})\n")
+            else:
+                self.log(f"    [MODBUS HATA] Register okuma başarısız! Hata Detayı: {res}\n")
 
             self.test_results[t_id] = {
                 "id": t_id, "name": t_name, "type": test["type"],
@@ -188,17 +179,12 @@ class HILTestApp(ctk.CTk):
             }
 
         except Exception as e:
-            self.log(f"    [HATA] İstisna oluştu: {e}\n")
+            self.log(f"    [SİSTEM HATASI] İstisna oluştu: {e}\n")
             self.test_results[t_id] = {
                 "id": t_id, "name": t_name, "type": test["type"],
-                "expected": test["expected_v"], "status": "ERROR",
+                "expected": test["expected_v"], "status": "SYS_ERROR",
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
-
-            # Block Read sonrası gelen ham diziyi konsola bastırın:
-            if not res.isError():
-                channel_statuses = res.registers
-                self.log(f"   [CANLI KANAL DURUMLARI]: {channel_statuses}")
 
     def run_single_test(self, test_id):
         self.com_port = self.port_entry.get()
@@ -252,38 +238,29 @@ class HILTestApp(ctk.CTk):
         ws = wb.active
         ws.title = "HIL Test Raporu"
 
-        # Stiller
         font_header = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
         fill_header = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
-        
         font_pass = Font(name="Calibri", size=11, bold=True, color="006100")
         fill_pass = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
-        
         font_fail = Font(name="Calibri", size=11, bold=True, color="9C0006")
         fill_fail = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
-
         align_center = Alignment(horizontal="center", vertical="center")
         align_left = Alignment(horizontal="left", vertical="center")
         thin_border = Border(
-            left=Side(style='thin', color='D9D9D9'),
-            right=Side(style='thin', color='D9D9D9'),
-            top=Side(style='thin', color='D9D9D9'),
-            bottom=Side(style='thin', color='D9D9D9')
+            left=Side(style='thin', color='D9D9D9'), right=Side(style='thin', color='D9D9D9'),
+            top=Side(style='thin', color='D9D9D9'), bottom=Side(style='thin', color='D9D9D9')
         )
 
-        # Rapor Başlık Bilgisi
         ws.merge_cells("A1:F1")
         ws["A1"] = "Taytech TTSimBox - HIL Test Doğrulama Raporu"
         ws["A1"].font = Font(name="Calibri", size=14, bold=True, color="1F4E79")
         ws["A1"].alignment = align_left
-
         ws["A2"] = f"Rapor Tarihi: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         ws["A2"].font = Font(name="Calibri", size=10, italic=True)
 
-        # Tablo Başlıkları
-        headers = ["Test ID", "Senaryo Adı", "Test Tipi", "Beklenen Voltaj", "Test Durumu", "Zaman Damgası"]
-        ws.append([]) # Boş satır (Satır 3)
-        ws.append(headers) # Satır 4
+        headers = ["Test ID", "Senaryo Adı", "Test Tipi", "Beklenen Değer", "Test Durumu", "Zaman Damgası"]
+        ws.append([]) 
+        ws.append(headers) 
 
         for col_num, header in enumerate(headers, 1):
             cell = ws.cell(row=4, column=col_num)
@@ -292,20 +269,16 @@ class HILTestApp(ctk.CTk):
             cell.alignment = align_center
             cell.border = thin_border
 
-        # Veri Satırları
         row_idx = 5
         for t_id in sorted(self.test_results.keys()):
             r = self.test_results[t_id]
             row_data = [r["id"], r["name"], r["type"], r["expected"], r["status"], r["timestamp"]]
             ws.append(row_data)
 
-            # Hücre Biçimlendirme
             for col_num in range(1, 7):
                 cell = ws.cell(row=row_idx, column=col_num)
                 cell.border = thin_border
                 cell.alignment = align_center if col_num in [1, 3, 4, 5, 6] else align_left
-
-                # PASS / FAIL Renklendirmesi
                 if col_num == 5:
                     if r["status"] == "PASSED":
                         cell.font = font_pass
@@ -313,20 +286,16 @@ class HILTestApp(ctk.CTk):
                     else:
                         cell.font = font_fail
                         cell.fill = fill_fail
-
             row_idx += 1
 
-        # Sütun Genişliklerini Otomatik Ayarla
         for col in ws.columns:
             max_len = max(len(str(cell.value or '')) for cell in col)
             col_letter = get_column_letter(col[0].column)
             ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
 
-        # Kaydet ve Aç
         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         excel_filename = f"HIL_Test_Report_{timestamp_str}.xlsx"
         wb.save(excel_filename)
-
         self.log(f"\n[EXCEL] Rapor başarıyla oluşturuldu: {excel_filename}")
         os.system(f"start {excel_filename}")
 
@@ -340,7 +309,7 @@ class HILTestApp(ctk.CTk):
         story.append(Paragraph("TTSimBox HIL Simulator Validation Report", title_style))
         story.append(Spacer(1, 15))
 
-        data = [["Test ID", "Senaryo Adı", "Tip", "Beklenen Voltaj", "Durum"]]
+        data = [["Test ID", "Senaryo Adı", "Tip", "Beklenen Değer", "Durum"]]
         for t_id in sorted(self.test_results.keys()):
             r = self.test_results[t_id]
             data.append([str(r["id"]), r["name"], r["type"], r["expected"], r["status"]])

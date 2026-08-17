@@ -11,110 +11,133 @@ void TestEngine::begin(ModbusRTU* mb, DGTLPOT* dgtlPot) {
     _mb = mb;
     _dgtlPot = dgtlPot;
 
-    // Register'ları Temizle
+    // Register'ları Başlangıçta Temizle
     _mb->Hreg(REG_SYS_CMD, 0);
     _mb->Hreg(REG_TEST_ID, 0);
     _mb->Hreg(REG_TEST_STATUS, 0);
+
+    // Sistem ilk açıldığında tüm potları güvenli 50 kOhm konuma getir
+    if (_dgtlPot) {
+        _dgtlPot->setChanelResistance(DGTLPOT_3, 50.0f);
+        _dgtlPot->setChanelResistance(DGTLPOT_4, 50.0f);
+        _dgtlPot->setChanelResistance(DGTLPOT_5, 50.0f);
+        _dgtlPot->setChanelResistance(DGTLPOT_6, 50.0f);
+        _dgtlPot->setChanelResistance(DGTLPOT_7, 50.0f);
+        _dgtlPot->setChanelResistance(DGTLPOT_8, 50.0f);
+        
+        // Modbus pot register'larının tamamına başlangıç değeri olarak 50 (kOhm) yaz
+        for (int i = 2; i <= 9; i++) {
+            _mb->Hreg(i, 50);
+        }
+    }
 }
 
-// Yardımcı Metot: Belirli bir kanalın durumunu register'a yazar
+// Belirli bir kanalın durumunu register'a yazar (Python burayı okur)
 void TestEngine::setChannelStatus(uint8_t channelIndex, uint16_t statusCode) {
-    if (!_mb) return; // Güvenlik Kontrolü: Modbus pointer'ı boşsa işlem yapma
-    
-    // channelIndex: 0-7 arası (Kanal 1 - Kanal 8)
+    if (!_mb) return; 
     _mb->Hreg(REG_STATUS_BASE + channelIndex, statusCode);
 }
 
-// update() Metodundaki Tamamlama Kısmı:
 void TestEngine::update() {
     if (!_mb || !_dgtlPot) return;
 
     uint16_t cmd = _mb->Hreg(REG_SYS_CMD);
     uint16_t testId = _mb->Hreg(REG_TEST_ID);
 
+    // Python'dan cmd=1 gelmişse ve sistem boşta ise (IDLE) testi başlat
     if (cmd == 1 && _currentState == STATE_IDLE) {
         _currentState = STATE_RUNNING;
         _testTimerStart = millis();
         Serial.printf("\n[HIL ENGINE] Test Senaryosu %d Başlatıldı...\n", testId);
 
         switch (testId) {
-            case 1: runScenario1(); break;
-            case 2: runScenario2(); break;
-            case 3: runScenario3(); break;
-            case 4: runScenario4(); break;
-            case 5: runScenario5(); break;
-            case 6: runScenario6(); break; // YENİ EKLENEN ÇOKLU KANAL SENARYOSU
-            default:
-                _currentState = STATE_FAIL;
-                _mb->Hreg(REG_SYS_CMD, 0);
-                break;
+            case 1: runTestChannel1(); break; // Boş test
+            case 2: runTestChannel2(); break; // Boş test
+            case 3: runTestChannel3(); break; // Pot 3 Testi
+            case 4: runTestChannel4(); break; // Pot 4 Testi
+            case 5: runTestChannel5(); break; // Pot 5 Testi
+            case 6: runTestChannel6(); break; // Pot 6 Testi
+            case 7: runTestChannel7(); break; // Pot 7 Testi
+            case 8: runTestChannel8(); break; // Pot 8 Testi
         }
     }
 
+    // Test çalışıyorsa (RUNNING durumu)
     if (_currentState == STATE_RUNNING) {
-        if (millis() - _testTimerStart > 3500) { // 3.5 saniye donanım bekleme süresi
+        if (millis() - _testTimerStart > 5000) { // 5 saniye boyunca 10k direnç düşüşünü koru
             _currentState = STATE_PASS;
             
-            // SENARYO BAZLI KANAL STATUS GÜNCELLEMELERİ
-            if (testId == 6) {
-                // EŞ ZAMANLI 2 KANAL PASS YAPILIYOR
-                setChannelStatus(0, 2); // Kanal 1 (Index 0 / Reg 10) -> PASS
-                setChannelStatus(5, 2); // Kanal 6 (Index 5 / Reg 15) -> PASS
-            } else {
-                // Diğer tekil senaryolar için Kanal 6 (Index 5) PASS
-                setChannelStatus(5, 2);
+            if (testId >= 1 && testId <= 8) {
+                setChannelStatus(testId - 1, 2); // İlgili kanalı PASS (2) yap
+                
+                // 5 saniye dolunca ilgili potu tekrar 50 kOhm'a çek ve register değerini 50 yap
+                switch (testId) {
+                    case 1: /* Boş */ _mb->Hreg(2, 50); break;
+                    case 2: /* Boş */ _mb->Hreg(3, 50); break;
+                    case 3: _dgtlPot->setChanelResistance(DGTLPOT_3, 50.0f); _mb->Hreg(4, 50); break;
+                    case 4: _dgtlPot->setChanelResistance(DGTLPOT_4, 50.0f); _mb->Hreg(5, 50); break;
+                    case 5: _dgtlPot->setChanelResistance(DGTLPOT_5, 50.0f); _mb->Hreg(6, 50); break;
+                    case 6: _dgtlPot->setChanelResistance(DGTLPOT_6, 50.0f); _mb->Hreg(7, 50); break;
+                    case 7: _dgtlPot->setChanelResistance(DGTLPOT_7, 50.0f); _mb->Hreg(8, 50); break;
+                    case 8: _dgtlPot->setChanelResistance(DGTLPOT_8, 50.0f); _mb->Hreg(9, 50); break;
+                }
             }
 
-            _mb->Hreg(REG_SYS_CMD, 0); // Komutu sıfırla
+            // Test Bitti: Sistemi tamamen sıfırla ki tekrar test seçilebilsin
+            _mb->Hreg(REG_SYS_CMD, 0); 
+            _mb->Hreg(REG_TEST_ID, 0); 
+            
             PeripheralManager::getInstance().beep(200);
-            Serial.println("[HIL ENGINE] TEST PASSED!");
-            _currentState = STATE_IDLE;
+            Serial.println("[HIL ENGINE] TEST PASSED & RESTORED TO 50k!");
+            
+            _currentState = STATE_IDLE; // Tekrar komut beklemeye dön
         }
     }
 }
 
-// SENARYO 1: Donma Koruması Testi (50 kOhm -> 3.08V)
-void TestEngine::runScenario1() {
-    _dgtlPot->setChanelResistance(DGTLPOT_8, 50.0f);
-    _mb->Hreg(7, 50);
-    Serial.println("[SCENARIO 1] 6. Port -> 50 kOhm Ayarlandı.");
+// TEST TANIMLARI (Test 1 ve 2 boş, Test 3'ten itibaren Pot 3 -> Pot 8 sıralı)
+void TestEngine::runTestChannel1() {
+    _mb->Hreg(2, 50);
+    Serial.println("[DIAGNOSTIC] Test 1: Boş Test (Aktif pot yok).");
 }
 
-// SENARYO 2: Yüksek Sıcaklık Testi (10 kOhm -> 2.49V)
-void TestEngine::runScenario2() {
-    _dgtlPot->setChanelResistance(DGTLPOT_8, 10.0f);
+void TestEngine::runTestChannel2() {
+    _mb->Hreg(3, 50);
+    Serial.println("[DIAGNOSTIC] Test 2: Boş Test (Aktif pot yok).");
+}
+
+void TestEngine::runTestChannel3() {
+    _dgtlPot->setChanelResistance(DGTLPOT_3, 10.0f); 
+    _mb->Hreg(4, 10);
+    Serial.println("[DIAGNOSTIC] Test 3: Pot 3 -> 10 kOhm'a düşürüldü (5sn).");
+}
+
+void TestEngine::runTestChannel4() {
+    _dgtlPot->setChanelResistance(DGTLPOT_4, 10.0f); 
+    _mb->Hreg(5, 10);
+    Serial.println("[DIAGNOSTIC] Test 4: Pot 4 -> 10 kOhm'a düşürüldü (5sn).");
+}
+
+void TestEngine::runTestChannel5() {
+    _dgtlPot->setChanelResistance(DGTLPOT_5, 10.0f); 
+    _mb->Hreg(6, 10);
+    Serial.println("[DIAGNOSTIC] Test 5: Pot 5 -> 10 kOhm'a düşürüldü (5sn).");
+}
+
+void TestEngine::runTestChannel6() {
+    _dgtlPot->setChanelResistance(DGTLPOT_6, 10.0f); 
     _mb->Hreg(7, 10);
-    Serial.println("[SCENARIO 2] 6. Port -> 10 kOhm Ayarlandı.");
+    Serial.println("[DIAGNOSTIC] Test 6: Pot 6 -> 10 kOhm'a düşürüldü (5sn).");
 }
 
-// SENARYO 3: Kademeli Sıcaklık Taraması (10 kOhm -> 50 kOhm Fade)
-void TestEngine::runScenario3() {
-    Serial.println("[SCENARIO 3] 6. Port -> 10k -> 50k Kademeli Geçiş Başlatıldı.");
-    _dgtlPot->startChanelFadeByDuration(DGTLPOT_8, 10.0f, 50.0f, 1.0f, 3000);
-    _mb->Hreg(7, 50);
+void TestEngine::runTestChannel7() {
+    _dgtlPot->setChanelResistance(DGTLPOT_7, 10.0f); 
+    _mb->Hreg(8, 10);
+    Serial.println("[DIAGNOSTIC] Test 7: Pot 7 -> 10 kOhm'a düşürüldü (5sn).");
 }
 
-// SENARYO 4: Sensör Kopuk Arızası Enjeksiyonu (100 kOhm -> Max Direnç / ~3.3V)
-void TestEngine::runScenario4() {
-    _dgtlPot->setChanelResistance(DGTLPOT_8, 100.0f);
-    _mb->Hreg(7, 100);
-    Serial.println("[SCENARIO 4] HATA ENJEKSİYONU: Sensör Kopuk (100 kOhm / Open Circuit).");
-}
-
-// SENARYO 5: Sensör Kısa Devre Arızası Enjeksiyonu (0 kOhm -> Min Direnç / 0V)
-void TestEngine::runScenario5() {
-    _dgtlPot->setChanelResistance(DGTLPOT_8, 0.0f);
-    _mb->Hreg(7, 0);
-    Serial.println("[SCENARIO 5] HATA ENJEKSİYONU: Sensör Kısa Devre (0 Ohm / Short Circuit).");
-}
-
-// Senaryo 6: Çift Sensör Eş Zamanlı Testi (Kanal 1: 10 kΩ, Kanal 6: 50 kΩ)
-void TestEngine::runScenario6() {
-    Serial.println("  -> [SENARYO 6] Çift Kanal Eş Zamanlı Simülasyon Çalıştırılıyor...");
-    
-    // 1. Kanalı (DGTLPOT_1 veya ilk kanal enumu hangisiyse) Yüksek Sıcaklık Seviyesine Çek (10 kΩ)
-    _dgtlPot->setChanelResistance(DGTLPOT_3, 10.0f);
-    
-    // 6. Kanalı (DGTLPOT_8 veya kullandığınız kanal enumu) Donma Koruması Seviyesine Çek (50 kΩ)
-    _dgtlPot->setChanelResistance(DGTLPOT_8, 50.0f);
+void TestEngine::runTestChannel8() {
+    _dgtlPot->setChanelResistance(DGTLPOT_8, 10.0f); 
+    _mb->Hreg(9, 10);
+    Serial.println("[DIAGNOSTIC] Test 8: Pot 8 -> 10 kOhm'a düşürüldü (5sn).");
 }

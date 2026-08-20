@@ -147,7 +147,7 @@ class HILTestApp(ctk.CTk):
             time.sleep(5.5)
 
             # 3. Test Durumunu Oku (Reg 10-17 arası / Status Base)
-            res = client.read_holding_registers(10, count=8, device_id=self.slave_id)
+            res = client.read_holding_registers(10, count=len(self.test_scenarios), device_id=self.slave_id)
             status_str = "READ_ERROR"
 
             if not res.isError():

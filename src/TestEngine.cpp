@@ -1,5 +1,17 @@
 #include "TestEngine.h"
 
+static const PotTestCase testCases[] = {
+    // { TestID, PotNo, DirençDeğeri, ModbusRegDeğeri }
+    { 1, 1, 1.0f,   1000 }, // Pot 1 (AD5248 Ch0) -> 1000 Ohm
+    { 2, 2, 1.385f, 1385 }, // Pot 2 (AD5248 Ch1) -> 1385 Ohm
+    { 3, 3, 10.0f,  10   }, // Pot 3 (MCP4632)    -> 10 kOhm
+    { 4, 4, 15.0f,  15   }, // Pot 4 (MCP4632)    -> 15 kOhm
+    { 5, 5, 20.0f,  20   }, // Pot 5 (MCP4632)    -> 20 kOhm
+    { 6, 6, 25.0f,  25   }, // Pot 6 (MCP4632)    -> 25 kOhm
+    { 7, 7, 30.0f,  30   }, // Pot 7 (MCP4632)    -> 30 kOhm
+    { 8, 8, 40.0f,  40   }  // Pot 8 (MCP4632)    -> 40 kOhm
+};
+
 TestEngine::TestEngine() {
     _currentState   = STATE_IDLE;
     _testTimerStart = 0;
@@ -8,14 +20,13 @@ TestEngine::TestEngine() {
     _ad5248         = nullptr;
 }
 
-// 1. TEK FONKSİYON: İstenen Pot'u Güvenli Değerine Çeker
 void TestEngine::resetPotToSafe(uint8_t potNo) {
     if (potNo == 1 && _ad5248) {
-        _ad5248->setResistance(0, SAFE_AD5248_KOHM);
+        _ad5248->setChanelResistance(DGTLPOT_1, SAFE_AD5248_KOHM);
         _mb->Hreg(REG_POT_START, SAFE_AD5248_OHM);
     } 
     else if (potNo == 2 && _ad5248) {
-        _ad5248->setResistance(1, SAFE_AD5248_KOHM);
+        _ad5248->setChanelResistance(DGTLPOT_2, SAFE_AD5248_KOHM);
         _mb->Hreg(REG_POT_START + 1, SAFE_AD5248_OHM);
     } 
     else if (potNo >= 3 && potNo <= 8 && _dgtlPot) {
@@ -25,7 +36,6 @@ void TestEngine::resetPotToSafe(uint8_t potNo) {
     }
 }
 
-// 2. BAŞLANGIÇ: Tüm Potları Güvenli Değere Getir
 void TestEngine::begin(ModbusRTU* mb, DGTLPOT* dgtlPot, AD5248* ad5248) {
     _mb      = mb;
     _dgtlPot = dgtlPot;
@@ -34,7 +44,6 @@ void TestEngine::begin(ModbusRTU* mb, DGTLPOT* dgtlPot, AD5248* ad5248) {
     _mb->Hreg(REG_SYS_CMD, 0);
     _mb->Hreg(REG_TEST_ID, 0);
 
-    // 8 Potun hepsini tek döngüde güvenli konuma al
     for (uint8_t i = 1; i <= 8; i++) {
         resetPotToSafe(i);
     }
@@ -44,39 +53,45 @@ void TestEngine::setChannelStatus(uint8_t channelIndex, uint16_t statusCode) {
     if (_mb) _mb->Hreg(REG_STATUS_BASE + channelIndex, statusCode);
 }
 
-// 3. TESTLERİ ÇALIŞTIRAN METOT
+// 3. TABLO TABANLI TEST ÇALIŞTIRICI (DÜZELTİLDİ)
 void TestEngine::runTest(uint8_t testId) {
-    switch (testId) {
-        case 1: // Pot 1 (AD5248 Ch0) -> 1000 Ohm
-            _ad5248->setResistance(0, 1.0f);
-            _mb->Hreg(REG_POT_START, 1000);
-            break;
-            
-        case 2: // Pot 2 (AD5248 Ch1) -> 1385 Ohm
-            _ad5248->setResistance(1, 1.385f);
-            _mb->Hreg(REG_POT_START + 1, 1385);
-            break;
-            
-        case 3: _dgtlPot->setChanelResistance(DGTLPOT_3, 10.0f); _mb->Hreg(REG_POT_START + 2, 10); break;
-        case 4: _dgtlPot->setChanelResistance(DGTLPOT_4, 15.0f); _mb->Hreg(REG_POT_START + 3, 15); break;
-        case 5: _dgtlPot->setChanelResistance(DGTLPOT_5, 20.0f); _mb->Hreg(REG_POT_START + 4, 20); break;
-        case 6: _dgtlPot->setChanelResistance(DGTLPOT_6, 25.0f); _mb->Hreg(REG_POT_START + 5, 25); break;
-        case 7: _dgtlPot->setChanelResistance(DGTLPOT_7, 30.0f); _mb->Hreg(REG_POT_START + 6, 30); break;
-        case 8: _dgtlPot->setChanelResistance(DGTLPOT_8, 40.0f); _mb->Hreg(REG_POT_START + 7, 40); break;
+    size_t totalTests = sizeof(testCases) / sizeof(testCases[0]);
+    
+    for (size_t i = 0; i < totalTests; i++) {
+        if (testCases[i].testId == testId) {
+            const auto& test = testCases[i];
+            uint8_t regOffset = test.potIndex - 1;
+
+            if (test.potIndex == 1) {
+                _ad5248->setChanelResistance(DGTLPOT_1, test.resistance);
+            } 
+            else if (test.potIndex == 2) {
+                _ad5248->setChanelResistance(DGTLPOT_2, test.resistance);
+            } 
+            else if (test.potIndex >= 3 && test.potIndex <= 8) {
+                DGTLPOT_Channel ch = static_cast<DGTLPOT_Channel>(test.potIndex - 3);
+                _dgtlPot->setChanelResistance(ch, test.resistance);
+            }
+
+            _mb->Hreg(REG_POT_START + regOffset, test.regValue);
+            Serial.printf("[TEST Engine] Test %d başladı (Pot %d set edildi).\n", testId, test.potIndex);
+            return;
+        }
     }
-    Serial.printf("[TEST Engine] Test %d başladı (Pot %d set edildi).\n", testId, testId);
 }
 
-// 4. ANA DÖNGÜ: Testi başlatır, 5sn sonra test yapılan potu güvenli değere çevirir
+// 4. ANA DÖNGÜ (DÜZELTİLDİ)
 void TestEngine::update() {
     if (!_mb || !_dgtlPot || !_ad5248) return;
 
     uint16_t cmd    = _mb->Hreg(REG_SYS_CMD);
     uint16_t testId = _mb->Hreg(REG_TEST_ID);
 
-    // Test Başlatma
+    size_t totalTests = sizeof(testCases) / sizeof(testCases[0]);
+
+    // Test Başlatma (Sabit 8 yerine dinamik totalTests kullanıldı)
     if (cmd == 1 && _currentState == STATE_IDLE) {
-        if (testId >= 1 && testId <= 8) {
+        if (testId >= 1 && testId <= totalTests) {
             _currentState   = STATE_RUNNING;
             _testTimerStart = millis();
             runTest(testId);
@@ -85,11 +100,11 @@ void TestEngine::update() {
         }
     }
 
-    // 5 Saniye Sonra Test Biter -> Sadece Çalışan Pot Güvenli Değere Dönüş Yapar
+    // 5 Saniye Sonra Test Biter
     if (_currentState == STATE_RUNNING) {
         if (millis() - _testTimerStart > 5000) {
             
-            resetPotToSafe(testId);         // Testi biten potu güvenli değere döndür
+            resetPotToSafe(testId);         
             setChannelStatus(testId - 1, 2); // Status: PASS (2)
 
             _mb->Hreg(REG_SYS_CMD, 0); 

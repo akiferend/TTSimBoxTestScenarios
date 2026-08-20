@@ -7,6 +7,12 @@
 #define AD5248_I2C_ADDR 0x2C
 #endif
 
+// MCP4632 tarafındaki Enum yapısıyla birebir aynı standart
+enum AD5248_Channel {
+    DGTLPOT_1 = 0, // Wiper Channel 0 -> Pot 1
+    DGTLPOT_2 = 1  // Wiper Channel 1 -> Pot 2
+};
+
 // Kalibrasyon noktası yapısı
 struct CalibPoint {
     float targetOhm;   // Hedeflenen (istenilen) Ohm değeri
@@ -41,7 +47,8 @@ public:
     AD5248(byte deviceAddr = AD5248_I2C_ADDR);
 
     void setStep(byte wiperChannel, byte stepValue);
-    void setResistance(byte wiperChannel, float kohm);
+    void setResistance(byte wiperChannel, float ohm);
+    void setChanelResistance(AD5248_Channel channel, float kohm);
     void clearAll();
 };
 

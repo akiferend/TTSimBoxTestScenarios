@@ -35,7 +35,7 @@ void setup() {
   Wire.begin();
   Wire.setClock(100000);
 
-  // Dijital Pot Temizliği (ad5248.begin() kaldırıldı)
+  // Dijital Pot Temizliği
   dgtlPot.clearAll();
 
   // 2. RS485 & Modbus RTU Başlatma
@@ -47,14 +47,14 @@ void setup() {
   mb.slave(1);
 
   // Holding Register'ları Tanımla (Reg 0 - 18)
-  for (int i = 0; i <= 18; i++) {
+  for (int i = 0; i <= 50; i++) {
     mb.addHreg(i, 0);
   }
 
   // 3. Test Motorunu Başlat (Tüm Potlar Güvenli Varsayılan Değerlere Çekilir)
   testEngine.begin(&mb, &dgtlPot, &ad5248);
 
-  // 4. NVS'den Son Kayıtlı Direnç Değerlerini Yükle (Varsa NVS Değeri Ezsin)
+  // 4. NVS'den Son Kayıtlı Direnç Değerlerini Yükle
   prefs.begin("pot_data", true);
   Serial.println("[NVS] Kayıtlı Direnç Değerleri Yükleniyor...");
 
@@ -70,8 +70,9 @@ void setup() {
       eskiPotDegerleri[reg] = kayitliDeger;
       mb.Hreg(reg, kayitliDeger);
       
-      uint8_t ch = potIndex - 1;
-      ad5248.setResistance(ch, static_cast<float>(kayitliDeger) / 1000.0f);
+      // DÜZELTME: uint8_t -> AD5248_Channel dönüşümü yapıldı
+      AD5248_Channel ch = static_cast<AD5248_Channel>(potIndex - 1);
+      ad5248.setChanelResistance(ch, static_cast<float>(kayitliDeger) / 1000.0f);
       Serial.printf(" -> Pot %d (Reg %d): %d Ohm (AD5248)\n", potIndex, reg, kayitliDeger);
     } 
     else {
@@ -104,9 +105,10 @@ void loop() {
 
         if (potIndex == 1 || potIndex == 2) {
           // Pot 1 ve Pot 2 (AD5248 - Ohm Cinsinden)
-          uint8_t ch = potIndex - 1;
-          ad5248.setResistance(ch, static_cast<float>(anlikDeger) / 1000.0f);
-          Serial.printf("[MANUEL] Pot %d (AD5248 Ch%d) -> %d Ohm\n", potIndex, ch, anlikDeger);
+          // DÜZELTME: uint8_t -> AD5248_Channel dönüşümü yapıldı
+          AD5248_Channel ch = static_cast<AD5248_Channel>(potIndex - 1);
+          ad5248.setChanelResistance(ch, static_cast<float>(anlikDeger) / 1000.0f);
+          Serial.printf("[MANUEL] Pot %d (AD5248 Ch%d) -> %d Ohm\n", potIndex, static_cast<int>(ch), anlikDeger);
         } 
         else {
           // Pot 3 .. Pot 8 (MCP4632 - kOhm Cinsinden)

@@ -23,6 +23,14 @@ constexpr uint16_t SAFE_MCP4632_OHM  = 50;
 
 enum TestState { STATE_IDLE, STATE_RUNNING, STATE_PASS, STATE_FAIL };
 
+// Test Senaryosu Tablo Yapısı
+struct PotTestCase {
+    uint8_t testId;       // Test ID (1, 2, 3...)
+    uint8_t potIndex;     // Pot No (1 .. 8)
+    float resistance;     // Direnç Değeri (AD5248 için Ohm/1000 kOhm, MCP4632 için kOhm)
+    uint16_t regValue;    // Modbus'a yazılacak değer
+};
+
 class TestEngine {
 private:
     ModbusRTU* _mb;

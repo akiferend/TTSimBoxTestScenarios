@@ -4,39 +4,41 @@
 #include <Arduino.h>
 #include <ModbusRTU.h>
 #include "MCP4632.h"
+#include "AD5248.h"
 #include "PeripheralManager.h"
 
-// Modbus Register Haritası (Net Eşleşmeler)
+// Modbus Register Haritası
 #define REG_SYS_CMD      0   // 1: Test Başlat, 0: Normal Mod
-#define REG_TEST_ID      1   // Koşturulacak Test ID (1 - 8)
-#define REG_POT_START    2   // Reg 2 - Reg 9 (Pot 1 - Pot 8 Değerleri)
-#define REG_TEST_STATUS  8   // Genel Test Durum Kaydı
-#define REG_STATUS_BASE  10  // Kanal Status Taban Adresi (Reg 10-17)
+#define REG_TEST_ID      1   // Test ID (1 - 8)
+#define REG_POT_START    2   // Reg 2..9 -> Pot 1..8 Değerleri
+#define REG_TEST_STATUS  8   
+#define REG_STATUS_BASE  10  
+
+// Güvenli Varsayılan Dirençler
+constexpr float    SAFE_AD5248_KOHM  = 2.5f;  // Pot 1-2 için (2.5 kOhm)
+constexpr uint16_t SAFE_AD5248_OHM   = 2500;
+
+constexpr float    SAFE_MCP4632_KOHM = 50.0f; // Pot 3-8 için (50 kOhm)
+constexpr uint16_t SAFE_MCP4632_OHM  = 50;
 
 enum TestState { STATE_IDLE, STATE_RUNNING, STATE_PASS, STATE_FAIL };
 
 class TestEngine {
 private:
     ModbusRTU* _mb;
-    DGTLPOT* _dgtlPot;
+    DGTLPOT*   _dgtlPot;
+    AD5248*    _ad5248;
     
-    TestState _currentState;
+    TestState     _currentState;
     unsigned long _testTimerStart;
 
-    void runTestChannel1();
-    void runTestChannel2();
-    void runTestChannel3();
-    void runTestChannel4();
-    void runTestChannel5();
-    void runTestChannel6();
-    void runTestChannel7();
-    void runTestChannel8();
+    void resetPotToSafe(uint8_t potNo); // Seçilen potu güvenli değere döndürür
+    void runTest(uint8_t testId);      // İlgili testi başlatır
 
 public:
     TestEngine();
-    void begin(ModbusRTU* mb, DGTLPOT* dgtlPot);
+    void begin(ModbusRTU* mb, DGTLPOT* dgtlPot, AD5248* ad5248);
     void update();
-    
     void setChannelStatus(uint8_t channelIndex, uint16_t statusCode);
 };
 

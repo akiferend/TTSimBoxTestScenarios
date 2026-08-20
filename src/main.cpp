@@ -6,6 +6,7 @@
 #include "AD5248.h"     
 #include "PeripheralManager.h"
 #include "TestEngine.h" 
+#include "NTC_Lookup.h"
 
 #define RXD2   16  
 #define TXD2   17  
@@ -76,14 +77,17 @@ void setup() {
       Serial.printf(" -> Pot %d (Reg %d): %d Ohm (AD5248)\n", potIndex, reg, kayitliDeger);
     } 
     else {
-      // Pot 3 - 8 (MCP4632 - kOhm Cinsinden)
-      uint16_t kayitliDeger = prefs.getUShort(key, SAFE_MCP4632_OHM);
-      eskiPotDegerleri[reg] = kayitliDeger;
-      mb.Hreg(reg, kayitliDeger);
+      // Modbus'tan uint16_t okuyoruz ama sıcaklık eksi (-25 gibi) olabileceği için int16_t'ye cast ediyoruz
+      int16_t kayitliSicaklik = (int16_t)prefs.getUShort(key, 25); // Varsayılan güvenli sıcaklık: 25 °C
+      eskiPotDegerleri[reg] = (uint16_t)kayitliSicaklik; 
+      mb.Hreg(reg, (uint16_t)kayitliSicaklik);
+
+      // Sıcaklığı kOhm'a çevirip dijital pota uyguluyoruz
+      float targetKohm = NTCLookup::temperatureToKohm((float)kayitliSicaklik);
 
       DGTLPOT_Channel ch = static_cast<DGTLPOT_Channel>(potIndex - 3);
-      dgtlPot.setChanelResistance(ch, static_cast<float>(kayitliDeger));
-      Serial.printf(" -> Pot %d (Reg %d): %d kOhm (MCP4632)\n", potIndex, reg, kayitliDeger);
+      dgtlPot.setChanelResistance(ch, targetKohm);
+      Serial.printf(" -> Pot %d (Reg %d): %d °C (%.2f kOhm) (MCP4632)\n", potIndex, reg, kayitliSicaklik, targetKohm);
     }
   }
   prefs.end();
@@ -111,10 +115,13 @@ void loop() {
           Serial.printf("[MANUEL] Pot %d (AD5248 Ch%d) -> %d Ohm\n", potIndex, static_cast<int>(ch), anlikDeger);
         } 
         else {
-          // Pot 3 .. Pot 8 (MCP4632 - kOhm Cinsinden)
+          // Pot 3 .. Pot 8 (MCP4632 - Sıcaklık Kontrolü)
+          int16_t anlikSicaklik = static_cast<int16_t>(anlikDeger);
+          float targetKohm = NTCLookup::temperatureToKohm((float)anlikSicaklik);
+
           DGTLPOT_Channel ch = static_cast<DGTLPOT_Channel>(potIndex - 3);
-          dgtlPot.setChanelResistance(ch, static_cast<float>(anlikDeger));
-          Serial.printf("[MANUEL] Pot %d (MCP4632) -> %d kOhm\n", potIndex, anlikDeger);
+          dgtlPot.setChanelResistance(ch, targetKohm);
+          Serial.printf("[MANUEL] Pot %d (MCP4632) -> %d °C (Hedef Direnç: %.2f kOhm)\n", potIndex, anlikSicaklik, targetKohm);
         }
 
         eskiPotDegerleri[reg] = anlikDeger;

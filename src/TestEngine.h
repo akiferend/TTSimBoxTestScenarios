@@ -6,6 +6,7 @@
 #include "MCP4632.h"
 #include "AD5248.h"
 #include "PeripheralManager.h"
+#include "NTC_Lookup.h"
 
 // Modbus Register Haritası
 #define REG_SYS_CMD      0   // 1: Test Başlat, 0: Normal Mod

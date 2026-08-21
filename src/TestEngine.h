@@ -7,6 +7,7 @@
 #include "AD5248.h"
 #include "PeripheralManager.h"
 #include "NTC_Lookup.h"
+#include "PT1000_Lookup.h"
 
 // Modbus Register Haritası
 #define REG_SYS_CMD      0   // 1: Test Başlat, 0: Normal Mod
@@ -20,7 +21,7 @@ constexpr float    SAFE_AD5248_KOHM  = 2.5f;  // Pot 1-2 için (2.5 kOhm)
 constexpr uint16_t SAFE_AD5248_OHM   = 2500;
 
 constexpr float    SAFE_MCP4632_KOHM = 50.0f; // Pot 3-8 için (50 kOhm)
-constexpr uint16_t SAFE_MCP4632_OHM  = 50;
+constexpr uint16_t SAFE_MCP4632_OHM  = 50000;
 
 enum TestState { STATE_IDLE, STATE_RUNNING, STATE_PASS, STATE_FAIL };
 

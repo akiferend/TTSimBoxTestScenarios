@@ -2,8 +2,8 @@
 
 static const PotTestCase testCases[] = {
     // { TestID, PotNo, DirençDeğeri, ModbusRegDeğeri }
-    { 1, 1, 1.0f,   1000 }, // Pot 1 (AD5248 Ch0) -> 1000 Ohm
-    { 2, 2, 1.385f, 1385 }, // Pot 2 (AD5248 Ch1) -> 1385 Ohm
+    { 1, 1, 0.0f,   0 }, // Pot 1 (AD5248 Ch0) -> 1000 Ohm
+    { 2, 2, 100.0f, 100 }, // Pot 2 (AD5248 Ch1) -> 1385 Ohm
     { 3, 3, 25.0f,  25 }, // Pot 3 (MCP4632) -> 25 °C (10.0 kOhm)
     { 4, 4, 30.0f,  30 }, // Pot 4 (MCP4632) -> 30 °C (8.03 kOhm)
     { 5, 5, 35.0f,  35 }, // Pot 5 (MCP4632) -> 35 °C (6.50 kOhm)
@@ -22,12 +22,14 @@ TestEngine::TestEngine() {
 
 void TestEngine::resetPotToSafe(uint8_t potNo) {
     if (potNo == 1 && _ad5248) {
-        _ad5248->setChanelResistance(DGTLPOT_1, 2.5f); // 2.5 kOhm
-        _mb->Hreg(REG_POT_START + (potNo - 1), 2500); 
+        float safeOhm = PT1000Lookup::temperatureToOhm(409.0f); // 409 °C (1097.3 Ohm)
+        _ad5248->setChanelResistance(DGTLPOT_1, safeOhm / 1000.0f); 
+        _mb->Hreg(REG_POT_START + (potNo - 1), 409); // Modbus'a 409 (°C) yazıyoruz
     } 
     else if (potNo == 2 && _ad5248) {
-        _ad5248->setChanelResistance(DGTLPOT_2, 2.5f); // 2.5 kOhm
-        _mb->Hreg(REG_POT_START + (potNo - 1), 2500); 
+        float safeOhm = PT1000Lookup::temperatureToOhm(409.0f); // 409 °C (1097.3 Ohm)
+        _ad5248->setChanelResistance(DGTLPOT_2, safeOhm / 1000.0f); 
+        _mb->Hreg(REG_POT_START + (potNo - 1), 409);  
     } 
     else if (potNo >= 3 && potNo <= 8 && _dgtlPot) {
         DGTLPOT_Channel ch = static_cast<DGTLPOT_Channel>(potNo - 3);
@@ -71,24 +73,24 @@ void TestEngine::runTest(uint8_t testId) {
             const auto& test = testCases[i];
             uint8_t regOffset = test.potIndex - 1;
 
-            if (test.potIndex == 1) {
-                _ad5248->setChanelResistance(DGTLPOT_1, test.resistance);
-            } 
-            else if (test.potIndex == 2) {
-                _ad5248->setChanelResistance(DGTLPOT_2, test.resistance);
+            if (test.potIndex == 1 || test.potIndex == 2) {
+                AD5248_Channel ch = static_cast<AD5248_Channel>(test.potIndex - 1);
+                
+                // Sıcaklığı Ohm'a çevirip AD5248'e kOhm cinsinden veriyoruz (Ohm / 1000.0f)
+                float targetOhm = PT1000Lookup::temperatureToOhm(test.resistance);
+                _ad5248->setChanelResistance(ch, targetOhm / 1000.0f);
+                
+                Serial.printf("[TEST Engine] PT1000 Sıcaklık Testi: %.1f °C -> %.2f Ohm uygulandı\n", test.resistance, targetOhm);
             } 
             else if (test.potIndex >= 3 && test.potIndex <= 8) {
                 DGTLPOT_Channel ch = static_cast<DGTLPOT_Channel>(test.potIndex - 3);
-    
-                // Struct içindeki test.resistance alanını artık Sıcaklık (°C) olarak yorumluyoruz
                 float targetKohm = NTCLookup::temperatureToKohm(test.resistance); 
-    
+                
                 _dgtlPot->setChanelResistance(ch, targetKohm);
                 Serial.printf("[TEST Engine] NTC Sıcaklık Testi: %.1f °C -> %.2f kOhm uygulandı\n", test.resistance, targetKohm);
             }
 
             _mb->Hreg(REG_POT_START + regOffset, test.regValue);
-            Serial.printf("[TEST Engine] Test %d başladı (Pot %d set edildi).\n", testId, test.potIndex);
             return;
         }
     }

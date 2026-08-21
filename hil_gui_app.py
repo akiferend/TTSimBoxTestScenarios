@@ -32,14 +32,14 @@ class HILTestApp(ctk.CTk):
 
         # 8 POT KANALININ C++ TEST ENGINE İLE TAM UYUMLU SENARYOLARI
         self.test_scenarios = [
-            {"id": 1, "name": "POT1 (AD5248 Ch0) - PT1000 0°C",   "type": "PT1000 Simülasyonu", "expected": "1000 Ω"},
-            {"id": 2, "name": "POT2 (AD5248 Ch1) - PT1000 100°C", "type": "PT1000 Simülasyonu", "expected": "1385 Ω"},
-            {"id": 3, "name": "POT3 (MCP4632 Ch3) - Direct Pot", "type": "Direnç Doğrulama",   "expected": "10 kΩ"},
-            {"id": 4, "name": "POT4 (MCP4632 Ch4) - Direct Pot", "type": "Direnç Doğrulama",   "expected": "15 kΩ"},
-            {"id": 5, "name": "POT5 (MCP4632 Ch5) - Direct Pot", "type": "Direnç Doğrulama",   "expected": "20 kΩ"},
-            {"id": 6, "name": "POT6 (MCP4632 Ch6) - Direct Pot", "type": "Direnç Doğrulama",   "expected": "25 kΩ"},
-            {"id": 7, "name": "POT7 (MCP4632 Ch7) - Direct Pot", "type": "Direnç Doğrulama",   "expected": "30 kΩ"},
-            {"id": 8, "name": "POT8 (MCP4632 Ch8) - Direct Pot", "type": "Direnç Doğrulama",   "expected": "40 kΩ"},
+            {"id": 1, "name": "POT1 (AD5248 Ch0) - PT1000 0°C",   "type": "PT1000 Simülasyonu", "expected": "0.0 °C (1000 Ω)"},
+            {"id": 2, "name": "POT2 (AD5248 Ch1) - PT1000 100°C", "type": "PT1000 Simülasyonu", "expected": "100.0 °C (1385 Ω)"},
+            {"id": 3, "name": "POT3 (MCP4632 Ch3) - NTC 25°C",    "type": "NTC Sıcaklık Sim.",   "expected": "25.0 °C"},
+            {"id": 4, "name": "POT4 (MCP4632 Ch4) - NTC 30°C",    "type": "NTC Sıcaklık Sim.",   "expected": "30.0 °C"},
+            {"id": 5, "name": "POT5 (MCP4632 Ch5) - NTC 35°C",    "type": "NTC Sıcaklık Sim.",   "expected": "35.0 °C"},
+            {"id": 6, "name": "POT6 (MCP4632 Ch6) - NTC 40°C",    "type": "NTC Sıcaklık Sim.",   "expected": "40.0 °C"},
+            {"id": 7, "name": "POT7 (MCP4632 Ch7) - NTC 50°C",    "type": "NTC Sıcaklık Sim.",   "expected": "50.0 °C"},
+            {"id": 8, "name": "POT8 (MCP4632 Ch8) - NTC 60°C",    "type": "NTC Sıcaklık Sim.",   "expected": "60.0 °C"},
         ]
 
         self.test_results = {}

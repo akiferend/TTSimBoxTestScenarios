@@ -7,6 +7,7 @@
 #include "PeripheralManager.h"
 #include "TestEngine.h" 
 #include "NTC_Lookup.h"
+#include "PT1000_Lookup.h"
 
 #define RXD2   16  
 #define TXD2   17  
@@ -108,11 +109,13 @@ void loop() {
         uint8_t potIndex = reg - REG_POT_START + 1; // Pot 1 .. 8
 
         if (potIndex == 1 || potIndex == 2) {
-          // Pot 1 ve Pot 2 (AD5248 - Ohm Cinsinden)
-          // DÜZELTME: uint8_t -> AD5248_Channel dönüşümü yapıldı
-          AD5248_Channel ch = static_cast<AD5248_Channel>(potIndex - 1);
-          ad5248.setChanelResistance(ch, static_cast<float>(anlikDeger) / 1000.0f);
-          Serial.printf("[MANUEL] Pot %d (AD5248 Ch%d) -> %d Ohm\n", potIndex, static_cast<int>(ch), anlikDeger);
+            // Pot 1 ve Pot 2 (AD5248 - Sıcaklık Kontrolü)
+            int16_t anlikSicaklik = static_cast<int16_t>(anlikDeger);
+            float targetOhm = PT1000Lookup::temperatureToOhm((float)anlikSicaklik);
+
+            AD5248_Channel ch = static_cast<AD5248_Channel>(potIndex - 1);
+            ad5248.setChanelResistance(ch, targetOhm / 1000.0f);
+            Serial.printf("[MANUEL] Pot %d (AD5248 Ch%d) -> %d °C (Hedef Direnç: %.2f Ohm)\n", potIndex, static_cast<int>(ch), anlikSicaklik, targetOhm);
         } 
         else {
           // Pot 3 .. Pot 8 (MCP4632 - Sıcaklık Kontrolü)

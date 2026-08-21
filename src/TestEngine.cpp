@@ -2,8 +2,8 @@
 
 static const PotTestCase testCases[] = {
     // { TestID, PotNo, DirençDeğeri, ModbusRegDeğeri }
-    { 1, 1, 0.0f,   0 }, // Pot 1 (AD5248 Ch0) -> 1000 Ohm
-    { 2, 2, 100.0f, 100 }, // Pot 2 (AD5248 Ch1) -> 1385 Ohm
+    { 1, 1, 0.0f,   0 }, // Pot 1 (AD5248 Ch0) -> 0 °C (1000 Ohm)
+    { 2, 2, 100.0f, 100 }, // Pot 2 (AD5248 Ch1) -> 100 °C (1385 Ohm)
     { 3, 3, 25.0f,  25 }, // Pot 3 (MCP4632) -> 25 °C (10.0 kOhm)
     { 4, 4, 30.0f,  30 }, // Pot 4 (MCP4632) -> 30 °C (8.03 kOhm)
     { 5, 5, 35.0f,  35 }, // Pot 5 (MCP4632) -> 35 °C (6.50 kOhm)

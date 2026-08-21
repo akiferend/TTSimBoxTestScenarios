@@ -1,6 +1,3 @@
-//TODO:
-//Add presistent memory to save the last resistance values 
-
 #ifndef MCP4632_H
 #define MCP4632_H
 
